@@ -1,0 +1,277 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    
+    <!-- Scripts necesarios para cargar modelos VRM y animaciones -->
+    <script src="https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@1.0.9/lib/three-vrm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.150.0/examples/js/loaders/FBXLoader.js"></script>
+  </head>
+  <body>
+    <a-scene mindar-image="imageTargetSrc: targets.mind; filterMinCF: 0.001; filterBeta: 0.01; warmupTolerance: 5; missTolerance: 5;" color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true;" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+      <a-assets>
+        <img id="card" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/card.png" crossorigin="anonymous" />
+        <a-asset-item id="avatarModel" src="https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.5/examples/image-tracking/assets/card-example/softmind/scene.gltf" crossorigin="anonymous"></a-asset-item>
+      </a-assets>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      
+      <!-- Iluminación ambiental más suave y blanca -->
+      <a-entity light="type: ambient; color: #ffffff; intensity: 0.58"></a-entity>
+      
+      <!-- Luz hemisférica para iluminación más natural -->
+      <a-entity light="type: hemisphere; color: #ffffff; groundColor: #f0f0f0; intensity: 1.2"></a-entity>
+      
+      <!-- Luz direccional suave desde arriba -->
+      <a-entity light="type: directional; color: #ffffff; intensity: 0.8; castShadow: true" position="0 3 1"></a-entity>
+
+      <a-entity mindar-image-target="targetIndex: 0">
+        <!-- GLTF model, ahora invisible -->
+        <a-gltf-model id="gltf-model" rotation="0 0 0" position="0 0 0.1" scale="0.005 0.005 0.005" src="#avatarModel"
+          animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate"
+          visible="false">
+        </a-gltf-model>
+        <!-- Contenedor para el modelo VRM con animación de flotación -->
+        <a-entity id="vrm-container" position="0 0 0.1" scale="0.1 0.1 0.1" rotation="0 180 0"
+          animation="property: position; to: 0 0.03 0.1; dur: 2000; easing: easeInOutSine; loop: true; dir: alternate">
+        </a-entity>
+      </a-entity>
+    </a-scene>
+
+    <script>
+      // Mapa de nombres de huesos entre Mixamo y VRM
+      const mixamoVRMRigMap = {
+        'mixamorigHips': 'hips',
+        'mixamorigSpine': 'spine',
+        'mixamorigSpine1': 'chest',
+        'mixamorigSpine2': 'upperChest',
+        'mixamorigNeck': 'neck',
+        'mixamorigHead': 'head',
+        'mixamorigLeftShoulder': 'leftShoulder',
+        'mixamorigLeftArm': 'leftUpperArm',
+        'mixamorigLeftForeArm': 'leftLowerArm',
+        'mixamorigLeftHand': 'leftHand',
+        'mixamorigLeftHandThumb1': 'leftThumbMetacarpal',
+        'mixamorigLeftHandThumb2': 'leftThumbProximal',
+        'mixamorigLeftHandThumb3': 'leftThumbDistal',
+        'mixamorigLeftHandIndex1': 'leftIndexProximal',
+        'mixamorigLeftHandIndex2': 'leftIndexIntermediate',
+        'mixamorigLeftHandIndex3': 'leftIndexDistal',
+        'mixamorigLeftHandMiddle1': 'leftMiddleProximal',
+        'mixamorigLeftHandMiddle2': 'leftMiddleIntermediate',
+        'mixamorigLeftHandMiddle3': 'leftMiddleDistal',
+        'mixamorigLeftHandRing1': 'leftRingProximal',
+        'mixamorigLeftHandRing2': 'leftRingIntermediate',
+        'mixamorigLeftHandRing3': 'leftRingDistal',
+        'mixamorigLeftHandPinky1': 'leftLittleProximal',
+        'mixamorigLeftHandPinky2': 'leftLittleIntermediate',
+        'mixamorigLeftHandPinky3': 'leftLittleDistal',
+        'mixamorigRightShoulder': 'rightShoulder',
+        'mixamorigRightArm': 'rightUpperArm',
+        'mixamorigRightForeArm': 'rightLowerArm',
+        'mixamorigRightHand': 'rightHand',
+        'mixamorigRightHandThumb1': 'rightThumbMetacarpal',
+        'mixamorigRightHandThumb2': 'rightThumbProximal',
+        'mixamorigRightHandThumb3': 'rightThumbDistal',
+        'mixamorigRightHandIndex1': 'rightIndexProximal',
+        'mixamorigRightHandIndex2': 'rightIndexIntermediate',
+        'mixamorigRightHandIndex3': 'rightIndexDistal',
+        'mixamorigRightHandMiddle1': 'rightMiddleProximal',
+        'mixamorigRightHandMiddle2': 'rightMiddleIntermediate',
+        'mixamorigRightHandMiddle3': 'rightMiddleDistal',
+        'mixamorigRightHandRing1': 'rightRingProximal',
+        'mixamorigRightHandRing2': 'rightRingIntermediate',
+        'mixamorigRightHandRing3': 'rightRingDistal',
+        'mixamorigRightHandPinky1': 'rightLittleProximal',
+        'mixamorigRightHandPinky2': 'rightLittleIntermediate',
+        'mixamorigRightHandPinky3': 'rightLittleDistal',
+        'mixamorigLeftUpLeg': 'leftUpperLeg',
+        'mixamorigLeftLeg': 'leftLowerLeg',
+        'mixamorigLeftFoot': 'leftFoot',
+        'mixamorigLeftToeBase': 'leftToes',
+        'mixamorigRightUpLeg': 'rightUpperLeg',
+        'mixamorigRightLeg': 'rightLowerLeg',
+        'mixamorigRightFoot': 'rightFoot',
+        'mixamorigRightToeBase': 'rightToes'
+      };
+
+      // Función para cargar y adaptar animación de Mixamo para VRM
+      function loadMixamoAnimation(animationClip, vrm) {
+        const tracks = [];
+        
+        // Hacemos una copia del clip para no modificar el original
+        const clip = animationClip.clone();
+        
+        clip.tracks.forEach((track) => {
+          // Dividir nombre del track para obtener el nombre del hueso y la propiedad
+          const trackSplits = track.name.split('.');
+          const mixamoRigName = trackSplits[0];
+          const vrmBoneName = mixamoVRMRigMap[mixamoRigName];
+          const vrmNodeName = vrm.humanoid?.getBoneNode(vrmBoneName)?.name;
+          
+          // Si tenemos un mapeo para este hueso
+          if (vrmNodeName) {
+            const propertyName = trackSplits[1];
+            
+            // Crear nombre del track formato VRM
+            const newTrackName = `${vrmNodeName}.${propertyName}`;
+            
+            // Crear nuevo track con los valores originales pero nombre cambiado
+            const newTrack = track.clone();
+            newTrack.name = newTrackName;
+            
+            tracks.push(newTrack);
+          }
+        });
+        
+        // Crear un nuevo clip con los tracks adaptados
+        const newAnimationClip = new THREE.AnimationClip(
+          animationClip.name,
+          animationClip.duration,
+          tracks
+        );
+        
+        return newAnimationClip;
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        // Variables para gestionar el modelo VRM
+        let currentVrm = null;
+        let vrmMixer = null;
+        const clock = new THREE.Clock();
+        
+        // Elemento contenedor del VRM
+        const vrmContainer = document.getElementById('vrm-container');
+        const vrmEntity = vrmContainer.object3D;
+        
+        // Esperar a que la escena A-Frame esté lista
+        document.querySelector('a-scene').addEventListener('loaded', function () {
+          console.log('A-Frame scene loaded, loading VRM model...');
+          loadVRMModel();
+        });
+        
+        // Función para cargar el modelo VRM
+        function loadVRMModel() {
+          // Usamos THREE desde la instancia global que ya está disponible por A-Frame
+          const loader = new THREE.GLTFLoader();
+          
+          // Registrar el plugin VRM si está disponible
+          if (THREE.VRMLoaderPlugin) {
+            console.log('VRMLoaderPlugin available, registering...');
+            loader.register((parser) => {
+              return new THREE.VRMLoaderPlugin(parser);
+            });
+          } else {
+            console.error('VRMLoaderPlugin not found!');
+            return;
+          }
+          
+          console.log('Loading VRM model: finalsnoo.vrm');
+          
+          // Cargar el modelo VRM
+          loader.load('./finalsnoo.vrm', 
+            function(gltf) {
+              console.log('VRM loaded successfully');
+              
+              // Extraer el modelo VRM del resultado
+              const vrm = gltf.userData.vrm;
+              
+              if (vrm) {
+                console.log('VRM object found in loaded model');
+                currentVrm = vrm;
+                
+                // Añadir el modelo VRM al contenedor
+                vrmEntity.add(vrm.scene);
+                
+                // Ajustar escala y posición - 30% más grande (de 5 a 6.5)
+                vrm.scene.scale.set(6.5, 6.5, 6.5);
+                vrm.scene.position.set(0, 1, 0);
+                
+                // Configurar la expresión facial si está disponible
+                if (vrm.expressionManager) {
+                  vrm.expressionManager.setValue('joy', 1.0);
+                }
+                
+                // Cargar y aplicar la animación de baile de Mixamo
+                loadMixamoDanceAnimation(vrm);
+                
+                // Iniciar bucle de animación
+                animate();
+              } else {
+                console.error('No VRM data found in the loaded model');
+              }
+            },
+            function(progress) {
+              console.log('Loading progress:', (progress.loaded / progress.total * 100).toFixed(2) + '%');
+            },
+            function(error) {
+              console.error('Error loading VRM:', error);
+            }
+          );
+        }
+        
+        // Función para cargar la animación de baile de Mixamo
+        function loadMixamoDanceAnimation(vrm) {
+          // Verificar si el cargador FBX está disponible
+          if (!THREE.FBXLoader) {
+            console.error('FBXLoader not available, animation cannot be loaded');
+            return;
+          }
+          
+          console.log('Loading Mixamo dance animation from dance.fbx');
+          
+          const loader = new THREE.FBXLoader();
+          
+          loader.load('./dance.fbx', function(fbx) {
+            console.log('Dance animation loaded successfully');
+            
+            // Obtener la animación del modelo FBX
+            const animationClip = fbx.animations[0];
+            
+            if (animationClip) {
+              console.log('Animation found in FBX file');
+              
+              // Adaptar la animación de Mixamo para VRM
+              const vrmAnimationClip = loadMixamoAnimation(animationClip, vrm);
+              
+              // Crear mixer para la animación
+              vrmMixer = new THREE.AnimationMixer(vrm.scene);
+              
+              // Añadir la animación adaptada al mixer
+              const action = vrmMixer.clipAction(vrmAnimationClip);
+              
+              // Configurar la acción para repetirse
+              action.setLoop(THREE.LoopRepeat);
+              action.setEffectiveWeight(1.0);
+              action.play();
+              
+              console.log('Mixamo animation applied to VRM model');
+            } else {
+              console.warn('No animations found in FBX file');
+            }
+          }, undefined, function(error) {
+            console.error('Error loading Mixamo animation:', error);
+          });
+        }
+        
+        // Función de animación
+        function animate() {
+          requestAnimationFrame(animate);
+          
+          const delta = clock.getDelta();
+          
+          if (currentVrm) {
+            // Actualizar el modelo VRM
+            currentVrm.update(delta);
+            
+            // Actualizar animaciones
+            if (vrmMixer) {
+              vrmMixer.update(delta);
+            }
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
